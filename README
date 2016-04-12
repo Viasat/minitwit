@@ -10,17 +10,19 @@
 
     ~ How do I use it?
 
-      1. edit the configuration in the minitwit.py file or
+      1. install flask and flask-cli via pip
+
+      2. edit the configuration in the minitwit.py file or
          export an MINITWIT_SETTINGS environment variable
          pointing to a configuration file.
 
-      2. fire up a shell and run this:
+      3. fire up a shell and run this:
 
          flask --app=minitwit initdb
 
-      3. now you can run minitwit:
+      4. now you can run minitwit:
 
-         flask --app=minitwit run
+         flask --app=minitwit run --host=0.0.0.0
 
          the application will greet you on
          http://localhost:5000/
