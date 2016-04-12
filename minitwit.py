@@ -14,7 +14,8 @@ from sqlite3 import dbapi2 as sqlite3
 from hashlib import md5
 from datetime import datetime
 from flask import Flask, request, session, url_for, redirect, \
-     render_template, abort, g, flash, _app_ctx_stack
+    render_template, abort, g, flash, _app_ctx_stack
+from flask_cli import FlaskCLI
 from werkzeug import check_password_hash, generate_password_hash
 
 
@@ -26,6 +27,7 @@ SECRET_KEY = 'development key'
 
 # create our little application :)
 app = Flask(__name__)
+FlaskCLI(app)
 app.config.from_object(__name__)
 app.config.from_envvar('MINITWIT_SETTINGS', silent=True)
 
