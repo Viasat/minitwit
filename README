@@ -18,11 +18,11 @@
 
       3. fire up a shell and run this:
 
-         flask --app=minitwit initdb
+         export FLASK_APP=minitwit.py;flask initdb
 
       4. now you can run minitwit:
 
-         flask --app=minitwit run --host=0.0.0.0
+         export FLASK_APP=minitwit.py;flask run --host=0.0.0.0 --with-threads --no-debugger --no-reload
 
          the application will greet you on
          http://0.0.0.0:5000/
