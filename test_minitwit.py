@@ -17,6 +17,7 @@ import pytest
 @pytest.fixture
 def client(request):
     db_fd, minitwit.app.config['DATABASE'] = tempfile.mkstemp()
+    minitwit.app.config['DATABASE'] = 'sqlite:///' + minitwit.app.config['DATABASE'] 
     client = minitwit.app.test_client()
     with minitwit.app.app_context():
         minitwit.init_db()
@@ -24,7 +25,7 @@ def client(request):
     def teardown():
         """Get rid of the database again after each test."""
         os.close(db_fd)
-        os.unlink(minitwit.app.config['DATABASE'])
+        os.unlink(minitwit.app.config['DATABASE'][10:])
     request.addfinalizer(teardown)
     return client
 
