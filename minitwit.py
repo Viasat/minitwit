@@ -9,8 +9,9 @@
     :license: BSD, see LICENSE for more details.
 """
 
+import records
 import time
-from sqlite3 import dbapi2 as sqlite3
+
 from hashlib import md5
 from datetime import datetime
 from flask import Flask, request, session, url_for, redirect, \
@@ -20,7 +21,7 @@ from werkzeug import check_password_hash, generate_password_hash
 
 
 # configuration
-DATABASE = '/tmp/minitwit.db'
+DATABASE = 'sqlite:////tmp/minitwit.db'
 PER_PAGE = 30
 DEBUG = True
 SECRET_KEY = 'development key'
@@ -37,27 +38,27 @@ def get_db():
     current application context.
     """
     top = _app_ctx_stack.top
-    if not hasattr(top, 'sqlite_db'):
-        top.sqlite_db = sqlite3.connect(app.config['DATABASE'])
-        top.sqlite_db.row_factory = sqlite3.Row
-    return top.sqlite_db
+    if not hasattr(top, 'db'):
+        top.db = records.Database(app.config['DATABASE'])
+    return top.db
 
 
 @app.teardown_appcontext
 def close_database(exception):
     """Closes the database again at the end of the request."""
     top = _app_ctx_stack.top
-    if hasattr(top, 'sqlite_db'):
-        top.sqlite_db.close()
+    if hasattr(top, 'db'):
+        top.db.close()
 
 
 def init_db():
     """Initializes the database."""
     db = get_db()
     with app.open_resource('schema.sql', mode='r') as f:
-        db.cursor().executescript(f.read())
-    db.commit()
-
+        queries_string = f.read()
+        queries = queries_string.split(';')
+        for query in queries:
+            db.query(query.strip() + ';')
 
 @app.cli.command('initdb')
 def initdb_command():
@@ -66,17 +67,17 @@ def initdb_command():
     print('Initialized the database.')
 
 
-def query_db(query, args=(), one=False):
+def query_db(query, args={}, one=False):
     """Queries the database and returns a list of dictionaries."""
-    cur = get_db().execute(query, args)
-    rv = cur.fetchall()
+    cur = get_db().query(query, **args)
+    rv = cur.all()
     return (rv[0] if rv else None) if one else rv
 
 
 def get_user_id(username):
     """Convenience method to look up the id for a username."""
-    rv = query_db('select user_id from user where username = ?',
-                  [username], one=True)
+    rv = query_db('select user_id from user where username = :username',
+                  {'username': username}, one=True)
     return rv[0] if rv else None
 
 
@@ -95,8 +96,8 @@ def gravatar_url(email, size=80):
 def before_request():
     g.user = None
     if 'user_id' in session:
-        g.user = query_db('select * from user where user_id = ?',
-                          [session['user_id']], one=True)
+        g.user = query_db('select * from user where user_id = :userid',
+                          {'userid': session['user_id']}, one=True)
 
 
 @app.route('/')
@@ -110,11 +111,11 @@ def timeline():
     return render_template('timeline.html', messages=query_db('''
         select message.*, user.* from message, user
         where message.author_id = user.user_id and (
-            user.user_id = ? or
+            user.user_id = :userid or
             user.user_id in (select whom_id from follower
-                                    where who_id = ?))
-        order by message.pub_date desc limit ?''',
-        [session['user_id'], session['user_id'], PER_PAGE]))
+                                    where who_id = :whoid))
+        order by message.pub_date desc limit :limit''',
+        {'userid': session['user_id'], 'whoid': session['user_id'], 'limit': PER_PAGE}))
 
 
 @app.route('/public')
@@ -123,27 +124,27 @@ def public_timeline():
     return render_template('timeline.html', messages=query_db('''
         select message.*, user.* from message, user
         where message.author_id = user.user_id
-        order by message.pub_date desc limit ?''', [PER_PAGE]))
+        order by message.pub_date desc limit :limit''', {'limit': PER_PAGE}))
 
 
 @app.route('/<username>')
 def user_timeline(username):
     """Display's a users tweets."""
-    profile_user = query_db('select * from user where username = ?',
-                            [username], one=True)
+    profile_user = query_db('select * from user where username = :username',
+                            {'username': username}, one=True)
     if profile_user is None:
         abort(404)
     followed = False
     if g.user:
         followed = query_db('''select 1 from follower where
-            follower.who_id = ? and follower.whom_id = ?''',
-            [session['user_id'], profile_user['user_id']],
+            follower.who_id = :whoid and follower.whom_id = :whomid''',
+            {'whoid': session['user_id'], 'whomid': profile_user['user_id']},
             one=True) is not None
     return render_template('timeline.html', messages=query_db('''
             select message.*, user.* from message, user where
-            user.user_id = message.author_id and user.user_id = ?
-            order by message.pub_date desc limit ?''',
-            [profile_user['user_id'], PER_PAGE]), followed=followed,
+            user.user_id = message.author_id and user.user_id = :userid
+            order by message.pub_date desc limit :limit''',
+            {'userid': profile_user['user_id'], 'limit': PER_PAGE}), followed=followed,
             profile_user=profile_user)
 
 
@@ -156,9 +157,9 @@ def follow_user(username):
     if whom_id is None:
         abort(404)
     db = get_db()
-    db.execute('insert into follower (who_id, whom_id) values (?, ?)',
-              [session['user_id'], whom_id])
-    db.commit()
+    db.query('insert into follower (who_id, whom_id) values (:whoid, :whomid)',
+              whoid=session['user_id'], whomid=whom_id)
+    # db.commit()
     flash('You are now following "%s"' % username)
     return redirect(url_for('user_timeline', username=username))
 
@@ -172,9 +173,9 @@ def unfollow_user(username):
     if whom_id is None:
         abort(404)
     db = get_db()
-    db.execute('delete from follower where who_id=? and whom_id=?',
-              [session['user_id'], whom_id])
-    db.commit()
+    db.query('delete from follower where who_id=:whoid and whom_id=:whomid',
+              whoid=session['user_id'], whomid=whom_id)
+    # db.commit()
     flash('You are no longer following "%s"' % username)
     return redirect(url_for('user_timeline', username=username))
 
@@ -186,10 +187,13 @@ def add_message():
         abort(401)
     if request.form['text']:
         db = get_db()
-        db.execute('''insert into message (author_id, text, pub_date)
-          values (?, ?, ?)''', (session['user_id'], request.form['text'],
-                                int(time.time())))
-        db.commit()
+        db.query('''insert into message (author_id, text, pub_date)
+          values (:authorid, :text, :pubdate)''', 
+          authorid=session['user_id'], 
+          text=request.form['text'],
+          pubdate=int(time.time())
+        )
+        # db.commit()
         flash('Your message was recorded')
     return redirect(url_for('timeline'))
 
@@ -202,7 +206,7 @@ def login():
     error = None
     if request.method == 'POST':
         user = query_db('''select * from user where
-            username = ?''', [request.form['username']], one=True)
+            username = :username''', {'username': request.form['username']}, one=True)
         if user is None:
             error = 'Invalid username'
         elif not check_password_hash(user['pw_hash'],
@@ -235,11 +239,13 @@ def register():
             error = 'The username is already taken'
         else:
             db = get_db()
-            db.execute('''insert into user (
-              username, email, pw_hash) values (?, ?, ?)''',
-              [request.form['username'], request.form['email'],
-               generate_password_hash(request.form['password'])])
-            db.commit()
+            db.query('''insert into user (
+              username, email, pw_hash) values (:username, :email, :pwhash)''',
+              username=request.form['username'], 
+              email=request.form['email'],
+              pwhash=generate_password_hash(request.form['password'])
+            )
+            # db.commit()
             flash('You were successfully registered and can login now')
             return redirect(url_for('login'))
     return render_template('register.html', error=error)
