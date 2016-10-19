@@ -21,7 +21,8 @@ from werkzeug import check_password_hash, generate_password_hash
 
 
 # configuration
-DATABASE = 'sqlite:////tmp/minitwit.db'
+DATABASE = 'mysql://minitwit:minitwit@127.0.0.1:32768/minitwit'
+SCHEMA = 'db_mysql.sql'
 PER_PAGE = 30
 DEBUG = True
 SECRET_KEY = 'development key'
@@ -54,11 +55,12 @@ def close_database(exception):
 def init_db():
     """Initializes the database."""
     db = get_db()
-    with app.open_resource('schema.sql', mode='r') as f:
+    with app.open_resource(app.config['SCHEMA'], mode='r') as f:
         queries_string = f.read()
         queries = queries_string.split(';')
         for query in queries:
-            db.query(query.strip() + ';')
+            if len(query.strip()) > 0:
+                db.query(query.strip() + ';')
 
 @app.cli.command('initdb')
 def initdb_command():
