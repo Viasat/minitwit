@@ -23,7 +23,7 @@ from sqlalchemy.sql import text
 # configuration
 
 # By default, use a local sqlite db
-DATABASE = 'sqlite:////tmp/minitwit.db'
+DATABASE = 'sqlite:////var/minitwit/minitwit.db'
 
 # Use something like this to talk to an RDS msql db:
 #DATABASE = 'mysql://minitwit:minitwit@<rds-endpoint>:3306/minitwit'
