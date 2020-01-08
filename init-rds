@@ -1,0 +1,9 @@
+#!/bin/bash
+
+export FLASK_APP=minitwit.py
+export LC_ALL=en_US.utf-8
+export LANG=en_US.utf-8
+
+export MINITWIT_SETTINGS=/etc/minitwit.conf
+
+flask initdb
