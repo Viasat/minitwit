@@ -16,7 +16,7 @@ from datetime import datetime
 from flask import Flask, request, session, url_for, redirect
 from flask import render_template, abort, g, flash
 from flask_cli import FlaskCLI
-from werkzeug import check_password_hash, generate_password_hash #pylint: disable=no-name-in-module
+from werkzeug.security import check_password_hash, generate_password_hash
 import sqlalchemy as db
 from sqlalchemy.sql import text
 
