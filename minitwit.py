@@ -23,11 +23,8 @@ from sqlalchemy.sql import text
 # configuration
 
 # By default, use a local sqlite db
-DATABASE = 'sqlite:////var/minitwit/minitwit.db'
-
-# Use something like this to talk to an RDS msql db:
-#DATABASE = 'mysql://minitwit:minitwit@<rds-endpoint>:3306/minitwit'
-#DATABASE = 'mysql://minitwit:minitwit@db.apps-dev.viasat-io-dev.com:3306/minitwit'
+DB_TYPE = 'sqlite'
+DATABASE_URL = DB_TYPE + ':////var/minitwit/minitwit.db'
 
 SCHEMAS = dict(
     sqlite='db_sqlite.sql',
@@ -46,15 +43,25 @@ FlaskCLI(app)
 app.config.from_object(__name__)
 app.config.from_envvar('MINITWIT_SETTINGS', silent=True)
 
-DB_ENGINE = db.create_engine(app.config['DATABASE'])
-
 
 def get_db():
     """Opens a new database connection if there is none yet for the
     current request.
     """
     if DB_STASH not in g:
-        g.db = DB_ENGINE.connect()
+        db_type = app.config.get('DB_TYPE')
+
+        if db_type == DB_TYPE:
+            db_url = DATABASE_URL
+        else:
+            db_url = '{}://{}:{}@{}:3306/{}'.format(
+                db_type,
+                app.config.get('DB_USER'),
+                app.config.get('DB_PASSWORD'),
+                app.config.get('DB_ENDPOINT'),
+                app.config.get('DB_NAME'))
+
+        g.db = db.create_engine(db_url).connect()
 
     return g.db
 
@@ -73,7 +80,7 @@ def init_db():
     the_db = get_db()
 
     # Use the dbtype: prefix to choose the schema.
-    schema_file = SCHEMAS[app.config['DATABASE'].split(':')[0]]
+    schema_file = SCHEMAS[app.config['DB_TYPE']]
 
     with app.open_resource(schema_file, mode='r') as fil:
         queries_string = fil.read()
@@ -92,7 +99,7 @@ def initdb_command():
 def query_db(query, args=None, one=False):
     """Queries the database and returns a list of dictionaries."""
 
-    values = [row for row in exec_db(query, args)]
+    values = list(exec_db(query, args))
     return (values[0] if values else None) if one else values
 
 
