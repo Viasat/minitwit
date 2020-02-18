@@ -43,25 +43,32 @@ FlaskCLI(app)
 app.config.from_object(__name__)
 app.config.from_envvar('MINITWIT_SETTINGS', silent=True)
 
+def make_db_engine():
+    ''' Figure what database we're using and create a engine forit
+    '''
+    db_type = app.config.get('DB_TYPE')
+
+    if db_type == DB_TYPE:
+        db_url = DATABASE_URL
+    else:
+        db_url = '{}://{}:{}@{}:3306/{}'.format(
+            db_type,
+            app.config.get('DB_USER'),
+            app.config.get('DB_PASSWORD'),
+            app.config.get('DB_ENDPOINT'),
+            app.config.get('DB_NAME'))
+
+    return db.create_engine(db_url)
+
+DB_ENGINE = make_db_engine()
+
 
 def get_db():
     """Opens a new database connection if there is none yet for the
     current request.
     """
     if DB_STASH not in g:
-        db_type = app.config.get('DB_TYPE')
-
-        if db_type == DB_TYPE:
-            db_url = DATABASE_URL
-        else:
-            db_url = '{}://{}:{}@{}:3306/{}'.format(
-                db_type,
-                app.config.get('DB_USER'),
-                app.config.get('DB_PASSWORD'),
-                app.config.get('DB_ENDPOINT'),
-                app.config.get('DB_NAME'))
-
-        g.db = db.create_engine(db_url).connect()
+        g.db = DB_ENGINE.connect()
 
     return g.db
 
