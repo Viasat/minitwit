@@ -77,6 +77,7 @@ def get_db_password():
         retries=dict(max_attempts=0))
 
     secret_id = app.config.get('DB_PASSWORD_SECRET_ID')
+    password = None
 
     # Loop until we find an endpoint that works
     #
@@ -88,13 +89,16 @@ def get_db_password():
                 endpoint_url='https://{}'.format(hostname),
                 config=boto_config)
 
-            return json.loads(
+            password = json.loads(
                 client.get_secret_value(SecretId=secret_id)['SecretString'])['password']
+
+            print('Obtained password from {}'.format(hostname))
+            break
 
         except: #pylint: disable=bare-except
             pass
 
-    return None
+    return password
 
 
 def make_db_engine():
@@ -112,7 +116,9 @@ def make_db_engine():
             app.config.get('DB_ENDPOINT'),
             app.config.get('DB_NAME'))
 
+    print('db url is:', db_url)
     return db.create_engine(db_url)
+
 
 DB_ENGINE = make_db_engine()
 
