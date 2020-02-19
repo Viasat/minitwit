@@ -11,14 +11,18 @@
 
 import time
 
+import json
 from hashlib import md5
 from datetime import datetime
+import requests
 from flask import Flask, request, session, url_for, redirect
 from flask import render_template, abort, g, flash
 from flask_cli import FlaskCLI
 from werkzeug.security import check_password_hash, generate_password_hash
 import sqlalchemy as db
 from sqlalchemy.sql import text
+import boto3
+import botocore
 
 # configuration
 
@@ -36,6 +40,8 @@ DEBUG = True
 SECRET_KEY = 'development key'
 
 DB_STASH = 'db'
+DB_PASSWORD_SECRET_ID = 'mtdb-password'
+
 
 # create our little application :)
 app = Flask(__name__) #pylint: disable=invalid-name
@@ -43,8 +49,56 @@ FlaskCLI(app)
 app.config.from_object(__name__)
 app.config.from_envvar('MINITWIT_SETTINGS', silent=True)
 
+
+def get_db_password():
+    ''' Try to get our db password from the AWS secrets manager
+    '''
+
+    # Get our AWS region from the instance metadata
+    #
+    region = requests.get(
+        'http://169.254.169.254/latest/meta-data/placement/availability-zone').text[:-1]
+
+    # Get a list of VPC endpoints for the secrets service.
+    # This list includes all VPCs, since we don't know our VPC ID.
+
+    result = boto3.client('ec2', region_name=region).describe_vpc_endpoints(
+        Filters=[dict(Name='service-name', Values=['com.amazonaws.us-east-1.secretsmanager'])])
+
+    endpoint_hostnames = [
+        endpoint['DnsEntries'][0]['DnsName'] for endpoint in result['VpcEndpoints']]
+
+    # Add the public Internet endpoint, in case we can talk to that instead
+    endpoint_hostnames.append('secretsmanager.{}.amazonaws.com'.format(region))
+
+    boto_config = botocore.config.Config(
+        connect_timeout=5,
+        read_timeout=10,
+        retries=dict(max_attempts=0))
+
+    secret_id = app.config.get('DB_PASSWORD_SECRET_ID')
+
+    # Loop until we find an endpoint that works
+    #
+    for hostname in endpoint_hostnames:
+        try:
+            client = boto3.client(
+                'secretsmanager',
+                region_name=region,
+                endpoint_url='https://{}'.format(hostname),
+                config=boto_config)
+
+            return json.loads(
+                client.get_secret_value(SecretId=secret_id)['SecretString'])['password']
+
+        except: #pylint: disable=bare-except
+            pass
+
+    return None
+
+
 def make_db_engine():
-    ''' Figure what database we're using and create a engine forit
+    ''' Figure what database we're using and create a engine for it
     '''
     db_type = app.config.get('DB_TYPE')
 
@@ -54,7 +108,7 @@ def make_db_engine():
         db_url = '{}://{}:{}@{}:3306/{}'.format(
             db_type,
             app.config.get('DB_USER'),
-            app.config.get('DB_PASSWORD'),
+            get_db_password() or app.config.get('DB_PASSWORD'),
             app.config.get('DB_ENDPOINT'),
             app.config.get('DB_NAME'))
 
