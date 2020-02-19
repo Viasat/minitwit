@@ -53,50 +53,30 @@ app.config.from_envvar('MINITWIT_SETTINGS', silent=True)
 def get_db_password():
     ''' Try to get our db password from the AWS secrets manager
     '''
-
     # Get our AWS region from the instance metadata
     #
     region = requests.get(
         'http://169.254.169.254/latest/meta-data/placement/availability-zone').text[:-1]
 
-    # Get a list of VPC endpoints for the secrets service.
-    # This list includes all VPCs, since we don't know our VPC ID.
-
-    result = boto3.client('ec2', region_name=region).describe_vpc_endpoints(
-        Filters=[dict(Name='service-name', Values=['com.amazonaws.us-east-1.secretsmanager'])])
-
-    endpoint_hostnames = [
-        endpoint['DnsEntries'][0]['DnsName'] for endpoint in result['VpcEndpoints']]
-
-    # Add the public Internet endpoint, in case we can talk to that instead
-    endpoint_hostnames.append('secretsmanager.{}.amazonaws.com'.format(region))
-
-    boto_config = botocore.config.Config(
-        connect_timeout=5,
-        read_timeout=10,
-        retries=dict(max_attempts=0))
-
-    secret_id = app.config.get('DB_PASSWORD_SECRET_ID')
     password = None
 
-    # Loop until we find an endpoint that works
-    #
-    for hostname in endpoint_hostnames:
-        try:
-            client = boto3.client(
-                'secretsmanager',
-                region_name=region,
-                endpoint_url='https://{}'.format(hostname),
-                config=boto_config)
+    try:
+        client = boto3.client(
+            'secretsmanager',
+            region_name=region,
+            config=botocore.config.Config(
+                connect_timeout=5,
+                read_timeout=10,
+                retries=dict(max_attempts=4)))
 
-            password = json.loads(
-                client.get_secret_value(SecretId=secret_id)['SecretString'])['password']
+        password = json.loads(
+            client.get_secret_value(
+                SecretId=app.config.get('DB_PASSWORD_SECRET_ID'))['SecretString'])['password']
 
-            print('Obtained password from {}'.format(hostname))
-            break
+        print('Obtained password from secrets manager')
 
-        except: #pylint: disable=bare-except
-            pass
+    except Exception as err: #pylint: disable=broad-except
+        print('Failed to get password from secrets manager: {}'.format(err))
 
     return password
 
