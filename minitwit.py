@@ -9,20 +9,17 @@
     :license: BSD, see LICENSE for more details.
 """
 
+import os
 import time
 
-import json
 from hashlib import md5
 from datetime import datetime
-import requests
 from flask import Flask, request, session, url_for, redirect
 from flask import render_template, abort, g, flash
 from flask_cli import FlaskCLI
 from werkzeug.security import check_password_hash, generate_password_hash
 import sqlalchemy as db
 from sqlalchemy.sql import text
-import boto3
-import botocore
 
 # configuration
 
@@ -40,7 +37,7 @@ DEBUG = True
 SECRET_KEY = 'development key'
 
 DB_STASH = 'db'
-DB_PASSWORD_SECRET_ID = 'mtdb-password'
+DB_PASSWORD_FILE = '/etc/minitwit.password'
 
 
 # create our little application :)
@@ -51,34 +48,14 @@ app.config.from_envvar('MINITWIT_SETTINGS', silent=True)
 
 
 def get_db_password():
-    ''' Try to get our db password from the AWS secrets manager
+    ''' Try to get our db password from a file.
+        Otherwise get it from our config.
     '''
-    # Get our AWS region from the instance metadata
-    #
-    region = requests.get(
-        'http://169.254.169.254/latest/meta-data/placement/availability-zone').text[:-1]
+    db_password_file = app.config.get('DB_PASSWORD_FILE')
 
-    password = None
-
-    try:
-        client = boto3.client(
-            'secretsmanager',
-            region_name=region,
-            config=botocore.config.Config(
-                connect_timeout=5,
-                read_timeout=10,
-                retries=dict(max_attempts=4)))
-
-        password = json.loads(
-            client.get_secret_value(
-                SecretId=app.config.get('DB_PASSWORD_SECRET_ID'))['SecretString'])['password']
-
-        print('Obtained password from secrets manager')
-
-    except Exception as err: #pylint: disable=broad-except
-        print('Failed to get password from secrets manager: {}'.format(err))
-
-    return password
+    return (
+        open(db_password_file, 'r').read() if os.path.isfile(db_password_file)
+        else app.config.get('DB_PASSWORD'))
 
 
 def make_db_engine():
@@ -92,7 +69,7 @@ def make_db_engine():
         db_url = '{}://{}:{}@{}:3306/{}'.format(
             db_type,
             app.config.get('DB_USER'),
-            get_db_password() or app.config.get('DB_PASSWORD'),
+            get_db_password(),
             app.config.get('DB_ENDPOINT'),
             app.config.get('DB_NAME'))
 
@@ -164,7 +141,7 @@ def get_user_id(username):
     """Convenience method to look up the id for a username."""
     value = query_db('select user_id from user where username = :username',
                      {'username': username}, one=True)
-    return value[0] if value else None
+    return value[0] if value else None  #pylint: disable=unsubscriptable-object
 
 
 def format_datetime(timestamp):
@@ -227,7 +204,7 @@ def user_timeline(username):
         followed = query_db(
             '''select 1 from follower where
             follower.who_id = :whoid and follower.whom_id = :whomid''',
-            {'whoid': session['user_id'], 'whomid': profile_user['user_id']},
+            {'whoid': session['user_id'], 'whomid': profile_user['user_id']},  #pylint: disable=unsubscriptable-object
             one=True) is not None
     return render_template(
         'timeline.html',
@@ -235,7 +212,7 @@ def user_timeline(username):
             '''select message.*, user.* from message, user where
             user.user_id = message.author_id and user.user_id = :userid
             order by message.pub_date desc limit :limit''',
-            {'userid': profile_user['user_id'], 'limit': PER_PAGE}),
+            {'userid': profile_user['user_id'], 'limit': PER_PAGE}),  #pylint: disable=unsubscriptable-object
         followed=followed,
         profile_user=profile_user)
 
@@ -303,12 +280,12 @@ def login():
             username = :username''', {'username': request.form['username']}, one=True)
         if user is None:
             error = 'Invalid username'
-        elif not check_password_hash(user['pw_hash'],
+        elif not check_password_hash(user['pw_hash'],  #pylint: disable=unsubscriptable-object
                                      request.form['password']):
             error = 'Invalid password'
         else:
             flash('You were logged in')
-            session['user_id'] = user['user_id']
+            session['user_id'] = user['user_id']  #pylint: disable=unsubscriptable-object
             return redirect(url_for('timeline'))
     return render_template('login.html', error=error)
 
