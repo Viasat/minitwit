@@ -9,8 +9,9 @@
     :license: BSD, see LICENSE for more details.
 """
 
-import os
+from collections import namedtuple
 import time
+import json
 
 from hashlib import md5
 from datetime import datetime
@@ -20,60 +21,91 @@ from flask_cli import FlaskCLI
 from werkzeug.security import check_password_hash, generate_password_hash
 import sqlalchemy as db
 from sqlalchemy.sql import text
+import boto3
 
 # configuration
 
-# By default, use a local sqlite db
-DB_TYPE = 'sqlite'
-DATABASE_URL = DB_TYPE + ':////var/minitwit/minitwit.db'
+CONFIG_DB_TYPE = 'DB_TYPE'
+CONFIG_DB_PASSWORD = 'DB_PASSWORD'
+CONFIG_DB_USER = 'DB_USER'
+CONFIG_DB_ENDPOINT = 'DB_ENDPOINT'
+CONFIG_DB_NAME = 'DB_NAME'
+CONFIG_DB_SECRET = 'DB_SECRET'
+CONFIG_DB_REGION = 'DB_REGION'
 
-SCHEMAS = dict(
-    sqlite='db_sqlite.sql',
-    mysql='db_mysql.sql',
-    )
+
+DB_TYPE_SQLITE = 'sqlite'
+DB_TYPE_MYSQL = 'mysql'
+
+# By default, use a local sqlite db.
+LOCAL_DB_TYPE = DB_TYPE_SQLITE
+
+LOCAL_DATABASE_URL = LOCAL_DB_TYPE + ':////var/minitwit/minitwit.db'
+
+SCHEMAS = {
+    DB_TYPE_SQLITE: 'db_sqlite.sql',
+    DB_TYPE_MYSQL: 'db_mysql.sql',
+}
 
 PER_PAGE = 30
 DEBUG = True
 SECRET_KEY = 'development key'
 
 DB_STASH = 'db'
-DB_PASSWORD_FILE = '/etc/minitwit.password'
 
 
 # create our little application :)
 app = Flask(__name__) #pylint: disable=invalid-name
 FlaskCLI(app)
+
+#The only local config param we actually read is DEBUG
 app.config.from_object(__name__)
+
 app.config.from_envvar('MINITWIT_SETTINGS', silent=True)
 
 
-def get_db_password():
-    ''' Try to get our db password from a file.
-        Otherwise get it from our config.
+def get_db_credentials():
+    ''' If we are configured to do so, retrieve the db username and password
+        from the secrets manager. Otherwise get them from the local config.
     '''
-    db_password_file = app.config.get('DB_PASSWORD_FILE')
+    secret = app.config.get(CONFIG_DB_SECRET)
+    app.logger.info('%s=%s', CONFIG_DB_SECRET, secret)
 
-    return (
-        open(db_password_file, 'r').read() if os.path.isfile(db_password_file)
-        else app.config.get('DB_PASSWORD'))
+    if secret:
+        client = boto3.client('secretsmanager', region_name=app.config.get(CONFIG_DB_REGION))
+        secret_value = json.loads(client.get_secret_value(SecretId=secret)['SecretString'])
+
+        username = secret_value['username']
+        password = secret_value['password']
+
+    else:
+        username = app.config.get(CONFIG_DB_USER)
+        password = app.config.get(CONFIG_DB_PASSWORD)
+
+    return namedtuple('DbCredentials', 'username password')(username, password)
 
 
 def make_db_engine():
     ''' Figure what database we're using and create a engine for it
     '''
-    db_type = app.config.get('DB_TYPE')
+    db_type = app.config.get(CONFIG_DB_TYPE, LOCAL_DB_TYPE)
 
-    if db_type == DB_TYPE:
-        db_url = DATABASE_URL
+    if db_type == LOCAL_DB_TYPE:
+        db_url = LOCAL_DATABASE_URL
+        app.logger.info('Using local db %s', db_url)
+
     else:
-        db_url = '{}://{}:{}@{}:3306/{}'.format(
-            db_type,
-            app.config.get('DB_USER'),
-            get_db_password(),
-            app.config.get('DB_ENDPOINT'),
-            app.config.get('DB_NAME'))
+        endpoint = app.config.get(CONFIG_DB_ENDPOINT)
+        name = app.config.get(CONFIG_DB_NAME)
+        credentials = get_db_credentials()
 
-    print('db url is:', db_url)
+        db_url = '{}://{}:{}@{}:3306/{}'.format(
+            db_type, credentials.username, credentials.password, endpoint, name)
+
+        app.logger.info(
+            'db_type=%s endpoint=%s db=%s username=%s',
+            db_type, endpoint, name, credentials.username)
+
     return db.create_engine(db_url)
 
 
@@ -104,7 +136,7 @@ def init_db():
     the_db = get_db()
 
     # Use the dbtype: prefix to choose the schema.
-    schema_file = SCHEMAS[app.config['DB_TYPE']]
+    schema_file = SCHEMAS[app.config.get(CONFIG_DB_TYPE, LOCAL_DB_TYPE)]
 
     with app.open_resource(schema_file, mode='r') as fil:
         queries_string = fil.read()
