@@ -21,18 +21,11 @@ from flask_cli import FlaskCLI
 from werkzeug.security import check_password_hash, generate_password_hash
 import sqlalchemy as db
 from sqlalchemy.sql import text
+import requests
 import boto3
 
-# configuration
-
-CONFIG_DB_TYPE = 'DB_TYPE'
-CONFIG_DB_PASSWORD = 'DB_PASSWORD'
-CONFIG_DB_USER = 'DB_USER'
-CONFIG_DB_ENDPOINT = 'DB_ENDPOINT'
-CONFIG_DB_NAME = 'DB_NAME'
-CONFIG_DB_SECRET = 'DB_SECRET'
-CONFIG_DB_REGION = 'DB_REGION'
-
+#======================================================================
+# Database settings
 
 DB_TYPE_SQLITE = 'sqlite'
 DB_TYPE_MYSQL = 'mysql'
@@ -42,25 +35,57 @@ LOCAL_DB_TYPE = DB_TYPE_SQLITE
 
 LOCAL_DATABASE_URL = LOCAL_DB_TYPE + ':////var/minitwit/minitwit.db'
 
+# Schema files used to initialize the database
+#
 SCHEMAS = {
     DB_TYPE_SQLITE: 'db_sqlite.sql',
     DB_TYPE_MYSQL: 'db_mysql.sql',
 }
 
+#======================================================================
+# configuration
+
+CONFIG_DB_TYPE = 'DB_TYPE' # Either DB_TYPE_SQLITE (the default) or DB_TYPE_MYSQL
+
+# The following params are used only for DB_TYPE_MYSQL
+
+# These params must be defined
+CONFIG_DB_ENDPOINT = 'DB_ENDPOINT'  # The RDS DNS name
+CONFIG_DB_NAME = 'DB_NAME'          # The database name
+
+# If DB_SECRET_ARN is defined, the program obtains the username
+# and password from the specified secret stored in the AWS Secrets
+# Manager.
+#
+CONFIG_DB_SECRET_ARN = 'DB_SECRET_ARN'
+CONFIG_DB_SECRET_KEY_USERNAME = 'DB_SECRET_KEY_USERNAME'
+CONFIG_DB_SECRET_KEY_PASSWORD = 'DB_SECRET_KEY_PASSWORD'
+
+# If DB_SECRET_ARN is not defined, the DB_USER and DB_PASSWORD params
+# must be defined.
+#
+CONFIG_DB_USER = 'DB_USER'
+CONFIG_DB_PASSWORD = 'DB_PASSWORD'
+
+#======================================================================
+# other constants
+
 PER_PAGE = 30
 DEBUG = True
-SECRET_KEY = 'development key'
 
 DB_STASH = 'db'
 
 
+#======================================================================
 # create our little application :)
+
 app = Flask(__name__) #pylint: disable=invalid-name
 FlaskCLI(app)
 
 #The only local config param we actually read is DEBUG
 app.config.from_object(__name__)
 
+#Read config settings from the file specified by this env var, if itis defined.
 app.config.from_envvar('MINITWIT_SETTINGS', silent=True)
 
 
@@ -68,15 +93,19 @@ def get_db_credentials():
     ''' If we are configured to do so, retrieve the db username and password
         from the secrets manager. Otherwise get them from the local config.
     '''
-    secret = app.config.get(CONFIG_DB_SECRET)
-    app.logger.info('%s=%s', CONFIG_DB_SECRET, secret)
+    secret_arn = app.config.get(CONFIG_DB_SECRET_ARN)
+    app.logger.info('%s=%s', CONFIG_DB_SECRET_ARN, secret_arn) #pylint: disable=no-member
 
-    if secret:
-        client = boto3.client('secretsmanager', region_name=app.config.get(CONFIG_DB_REGION))
-        secret_value = json.loads(client.get_secret_value(SecretId=secret)['SecretString'])
+    if secret_arn:
+        region = json.loads(
+            requests.get(
+                'http://169.254.169.254/latest/dynamic/instance-identity/document').text)['region']
 
-        username = secret_value['username']
-        password = secret_value['password']
+        client = boto3.client('secretsmanager', region_name=region)
+        secret_value = json.loads(client.get_secret_value(SecretId=secret_arn)['SecretString'])
+
+        username = secret_value[app.config.get(CONFIG_DB_SECRET_KEY_USERNAME)]
+        password = secret_value[app.config.get(CONFIG_DB_SECRET_KEY_PASSWORD)]
 
     else:
         username = app.config.get(CONFIG_DB_USER)
@@ -92,7 +121,7 @@ def make_db_engine():
 
     if db_type == LOCAL_DB_TYPE:
         db_url = LOCAL_DATABASE_URL
-        app.logger.info('Using local db %s', db_url)
+        app.logger.info('Using local db %s', db_url) #pylint: disable=no-member
 
     else:
         endpoint = app.config.get(CONFIG_DB_ENDPOINT)
@@ -102,7 +131,7 @@ def make_db_engine():
         db_url = '{}://{}:{}@{}:3306/{}'.format(
             db_type, credentials.username, credentials.password, endpoint, name)
 
-        app.logger.info(
+        app.logger.info( #pylint: disable=no-member
             'db_type=%s endpoint=%s db=%s username=%s',
             db_type, endpoint, name, credentials.username)
 
