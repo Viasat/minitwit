@@ -73,6 +73,9 @@ CONFIG_DB_PASSWORD = 'DB_PASSWORD'
 PER_PAGE = 30
 DEBUG = True
 
+# The key used to encrypt session keys
+SECRET_KEY = 'development key'
+
 DB_STASH = 'db'
 
 
