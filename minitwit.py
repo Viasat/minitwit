@@ -64,6 +64,10 @@ CONFIG_DB_SECRET_KEY_PASSWORD = 'DB_SECRET_KEY_PASSWORD'
 # The friendly secret name to use if no secret ARN is defined
 SECRET_FRIENDLY_NAME = 'mtdb-credentials'
 
+# Default values for the DB credentials keys
+SECRET_USERNAME = 'username'
+SECRET_PASSWORD = 'password'
+
 # If DB_SECRET_ARN is not defined, the DB_USER and DB_PASSWORD params
 # must be defined.
 #
@@ -91,7 +95,7 @@ FlaskCLI(app)
 #The only local config param we actually read is DEBUG
 app.config.from_object(__name__)
 
-#Read config settings from the file specified by this env var, if itis defined.
+#Read config settings from the file specified by this env var, if it is defined.
 app.config.from_envvar('MINITWIT_SETTINGS', silent=True)
 
 
@@ -111,8 +115,8 @@ def get_db_credentials():
         secret_value = json.loads(
             client.get_secret_value(SecretId=secret_arn or SECRET_FRIENDLY_NAME)['SecretString'])
 
-        username = secret_value[app.config.get(CONFIG_DB_SECRET_KEY_USERNAME)]
-        password = secret_value[app.config.get(CONFIG_DB_SECRET_KEY_PASSWORD)]
+        username = secret_value[app.config.get(CONFIG_DB_SECRET_KEY_USERNAME) or SECRET_USERNAME]
+        password = secret_value[app.config.get(CONFIG_DB_SECRET_KEY_PASSWORD) or SECRET_PASSWORD]
 
     except Exception as err: #pylint: disable=broad-except
         app.logger.info( #pylint: disable=no-member
