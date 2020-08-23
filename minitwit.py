@@ -61,6 +61,9 @@ CONFIG_DB_SECRET_ARN = 'DB_SECRET_ARN'
 CONFIG_DB_SECRET_KEY_USERNAME = 'DB_SECRET_KEY_USERNAME'
 CONFIG_DB_SECRET_KEY_PASSWORD = 'DB_SECRET_KEY_PASSWORD'
 
+# The friendly secret name to use if no secret ARN is defined
+SECRET_FRIENDLY_NAME = 'mtdb-credentials'
+
 # If DB_SECRET_ARN is not defined, the DB_USER and DB_PASSWORD params
 # must be defined.
 #
@@ -99,18 +102,22 @@ def get_db_credentials():
     secret_arn = app.config.get(CONFIG_DB_SECRET_ARN)
     app.logger.info('%s=%s', CONFIG_DB_SECRET_ARN, secret_arn) #pylint: disable=no-member
 
-    if secret_arn:
-        region = json.loads(
-            requests.get(
-                'http://169.254.169.254/latest/dynamic/instance-identity/document').text)['region']
+    region = json.loads(
+        requests.get(
+            'http://169.254.169.254/latest/dynamic/instance-identity/document').text)['region']
 
+    try:
         client = boto3.client('secretsmanager', region_name=region)
-        secret_value = json.loads(client.get_secret_value(SecretId=secret_arn)['SecretString'])
+        secret_value = json.loads(
+            client.get_secret_value(SecretId=secret_arn or SECRET_FRIENDLY_NAME)['SecretString'])
 
         username = secret_value[app.config.get(CONFIG_DB_SECRET_KEY_USERNAME)]
         password = secret_value[app.config.get(CONFIG_DB_SECRET_KEY_PASSWORD)]
 
-    else:
+    except Exception as err: #pylint: disable=broad-except
+        app.logger.info( #pylint: disable=no-member
+            'Unable to get credentials from secrets manager. Using stored credentials: %s',
+            str(err))
         username = app.config.get(CONFIG_DB_USER)
         password = app.config.get(CONFIG_DB_PASSWORD)
 
