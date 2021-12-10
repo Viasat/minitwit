@@ -80,12 +80,13 @@ div.page div.body {
 
 div.page div.footer {
     background: #eee;
-    & .secrets {
-      background: #e99 !important;
-    }
     color: #888;
     padding: 5px 10px;
     font-size: 12px;
+}
+
+div.secrets {
+  background: #e99 !important;
 }
 
 div.page div.followstatus {

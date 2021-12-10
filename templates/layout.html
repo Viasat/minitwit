@@ -28,5 +28,8 @@
   </div>
   <div class="footer {{ 'secrets' if secrets_used else ''}}">
     MiniTwit &mdash; A Flask Application 
+    {% if g.user %}
+        Hello
+    {% endif %}
   </div>
 </div>

@@ -293,7 +293,8 @@ def user_timeline(username):
             order by message.pub_date desc limit :limit''',
             {'userid': profile_user['user_id'], 'limit': PER_PAGE}),  #pylint: disable=unsubscriptable-object
         followed=followed,
-        profile_user=profile_user)
+        profile_user=profile_user,
+        secrets_used=secrets_used)
 
 
 @app.route('/<username>/follow')
