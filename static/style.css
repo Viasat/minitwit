@@ -80,8 +80,8 @@ div.page div.body {
 
 div.page div.footer {
     background: #eee;
-    .secrets {
-      background: #e99;
+    & .secrets {
+      background: #e99 !important;
     }
     color: #888;
     padding: 5px 10px;
