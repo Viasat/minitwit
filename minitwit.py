@@ -116,9 +116,13 @@ def get_db_credentials():
         secret_value = json.loads(
             client.get_secret_value(SecretId=secret_arn or SECRET_FRIENDLY_NAME)['SecretString'])
 
+        app.logger.info('mark 1')
         username = secret_value[app.config.get(CONFIG_DB_SECRET_KEY_USERNAME) or SECRET_USERNAME]
+        app.logger.info('mark 2')
         password = secret_value[app.config.get(CONFIG_DB_SECRET_KEY_PASSWORD) or SECRET_PASSWORD]
+        app.logger.info('mark 3')
         secrets_used = True
+        app.logger.info('mark 4')
 
     except Exception as err: #pylint: disable=broad-except
         app.logger.info( #pylint: disable=no-member
