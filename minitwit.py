@@ -98,7 +98,7 @@ app.config.from_object(__name__)
 #Read config settings from the file specified by this env var, if it is defined.
 app.config.from_envvar('MINITWIT_SETTINGS', silent=True)
 
-secrets_used = False
+secrets_used = []
 
 def get_db_credentials():
     ''' If we are configured to do so, retrieve the db username and password
@@ -116,13 +116,9 @@ def get_db_credentials():
         secret_value = json.loads(
             client.get_secret_value(SecretId=secret_arn or SECRET_FRIENDLY_NAME)['SecretString'])
 
-        app.logger.info('mark 1')
         username = secret_value[app.config.get(CONFIG_DB_SECRET_KEY_USERNAME) or SECRET_USERNAME]
-        app.logger.info('mark 2')
         password = secret_value[app.config.get(CONFIG_DB_SECRET_KEY_PASSWORD) or SECRET_PASSWORD]
-        app.logger.info('mark 3')
-        secrets_used = True
-        app.logger.info('mark 4')
+        secrets_used.append(True); 
 
     except Exception as err: #pylint: disable=broad-except
         app.logger.info( #pylint: disable=no-member
