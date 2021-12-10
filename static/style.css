@@ -80,6 +80,9 @@ div.page div.body {
 
 div.page div.footer {
     background: #eee;
+    .secrets {
+      background: #e99;
+    }
     color: #888;
     padding: 5px 10px;
     font-size: 12px;

@@ -98,6 +98,7 @@ app.config.from_object(__name__)
 #Read config settings from the file specified by this env var, if it is defined.
 app.config.from_envvar('MINITWIT_SETTINGS', silent=True)
 
+secrets_used = False
 
 def get_db_credentials():
     ''' If we are configured to do so, retrieve the db username and password
@@ -117,6 +118,7 @@ def get_db_credentials():
 
         username = secret_value[app.config.get(CONFIG_DB_SECRET_KEY_USERNAME) or SECRET_USERNAME]
         password = secret_value[app.config.get(CONFIG_DB_SECRET_KEY_PASSWORD) or SECRET_PASSWORD]
+        secrets_used = True
 
     except Exception as err: #pylint: disable=broad-except
         app.logger.info( #pylint: disable=no-member
@@ -255,7 +257,8 @@ def timeline():
             user.user_id in (select whom_id from follower
                                     where who_id = :whoid))
         order by message.pub_date desc limit :limit''',
-        {'userid': session['user_id'], 'whoid': session['user_id'], 'limit': PER_PAGE}))
+        {'userid': session['user_id'], 'whoid': session['user_id'], 'limit': PER_PAGE}),
+        secrets_used=secrets_used)
 
 
 @app.route('/public')
@@ -264,7 +267,8 @@ def public_timeline():
     return render_template('timeline.html', messages=query_db('''
         select message.*, user.* from message, user
         where message.author_id = user.user_id
-        order by message.pub_date desc limit :limit''', {'limit': PER_PAGE}))
+        order by message.pub_date desc limit :limit''', {'limit': PER_PAGE}),
+        secrets_used=secrets_used)
 
 
 @app.route('/<username>')
