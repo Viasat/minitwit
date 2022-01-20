@@ -85,6 +85,10 @@ div.page div.footer {
     font-size: 12px;
 }
 
+div.secrets {
+  background: #e99 !important;
+}
+
 div.page div.followstatus {
     border: 1px solid #ccc;
     background: #E3EBEA;

@@ -117,6 +117,7 @@ def get_db_credentials():
 
         username = secret_value[app.config.get(CONFIG_DB_SECRET_KEY_USERNAME) or SECRET_USERNAME]
         password = secret_value[app.config.get(CONFIG_DB_SECRET_KEY_PASSWORD) or SECRET_PASSWORD]
+        secrets_used = True
 
     except Exception as err: #pylint: disable=broad-except
         app.logger.info( #pylint: disable=no-member
@@ -124,8 +125,10 @@ def get_db_credentials():
             str(err))
         username = app.config.get(CONFIG_DB_USER)
         password = app.config.get(CONFIG_DB_PASSWORD)
+        secrets_used = False
 
-    return namedtuple('DbCredentials', 'username password')(username, password)
+    return namedtuple('DbCredentials', 'username password secrets_used')(
+        username, password, secrets_used)
 
 
 def make_db_engine():
@@ -136,11 +139,13 @@ def make_db_engine():
     if db_type == LOCAL_DB_TYPE:
         db_url = LOCAL_DATABASE_URL
         app.logger.info('Using local db %s', db_url) #pylint: disable=no-member
+        secrets_used = False
 
     else:
         endpoint = app.config.get(CONFIG_DB_ENDPOINT)
         name = app.config.get(CONFIG_DB_NAME)
         credentials = get_db_credentials()
+        secrets_used = credentials.secrets_used
 
         db_url = '{}://{}:{}@{}:3306/{}'.format(
             db_type, credentials.username, credentials.password, endpoint, name)
@@ -149,10 +154,10 @@ def make_db_engine():
             'db_type=%s endpoint=%s db=%s username=%s',
             db_type, endpoint, name, credentials.username)
 
-    return db.create_engine(db_url)
+    return (db.create_engine(db_url), secrets_used)
 
 
-DB_ENGINE = make_db_engine()
+DB_ENGINE, SECRETS_USED = make_db_engine()
 
 
 def get_db():
@@ -160,7 +165,7 @@ def get_db():
     current request.
     """
     if DB_STASH not in g:
-        g.db = DB_ENGINE.connect()
+        g.db = DB_ENGINE.connect() #pylint: disable=assigning-non-slot
 
     return g.db
 
@@ -233,9 +238,9 @@ def gravatar_url(email, size=80):
 @app.before_request
 def before_request():
     """ Do before-request operations """
-    g.user = None
+    g.user = None #pylint: disable=assigning-non-slot
     if 'user_id' in session:
-        g.user = query_db('select * from user where user_id = :userid',
+        g.user = query_db('select * from user where user_id = :userid', #pylint: disable=assigning-non-slot
                           {'userid': session['user_id']}, one=True)
 
 
@@ -255,7 +260,8 @@ def timeline():
             user.user_id in (select whom_id from follower
                                     where who_id = :whoid))
         order by message.pub_date desc limit :limit''',
-        {'userid': session['user_id'], 'whoid': session['user_id'], 'limit': PER_PAGE}))
+        {'userid': session['user_id'], 'whoid': session['user_id'], 'limit': PER_PAGE}),
+        secrets_used=SECRETS_USED)
 
 
 @app.route('/public')
@@ -264,7 +270,8 @@ def public_timeline():
     return render_template('timeline.html', messages=query_db('''
         select message.*, user.* from message, user
         where message.author_id = user.user_id
-        order by message.pub_date desc limit :limit''', {'limit': PER_PAGE}))
+        order by message.pub_date desc limit :limit''', {'limit': PER_PAGE}),
+        secrets_used=SECRETS_USED)
 
 
 @app.route('/<username>')
@@ -289,7 +296,8 @@ def user_timeline(username):
             order by message.pub_date desc limit :limit''',
             {'userid': profile_user['user_id'], 'limit': PER_PAGE}),  #pylint: disable=unsubscriptable-object
         followed=followed,
-        profile_user=profile_user)
+        profile_user=profile_user,
+        secrets_used=SECRETS_USED)
 
 
 @app.route('/<username>/follow')
