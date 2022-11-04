@@ -17,12 +17,12 @@ from hashlib import md5
 from datetime import datetime
 from flask import Flask, request, session, url_for, redirect
 from flask import render_template, abort, g, flash
-from flask_cli import FlaskCLI
 from werkzeug.security import check_password_hash, generate_password_hash
 import sqlalchemy as db
 from sqlalchemy.sql import text
 import requests
 import boto3
+import botocore
 
 #======================================================================
 # Database settings
@@ -90,7 +90,6 @@ DB_STASH = 'db'
 # create our little application :)
 
 app = Flask(__name__) #pylint: disable=invalid-name
-FlaskCLI(app)
 
 #The only local config param we actually read is DEBUG
 app.config.from_object(__name__)
@@ -111,7 +110,13 @@ def get_db_credentials():
             'http://169.254.169.254/latest/dynamic/instance-identity/document').text)['region']
 
     try:
-        client = boto3.client('secretsmanager', region_name=region)
+        client = boto3.client(
+            'secretsmanager',
+            config=botocore.client.Config(
+                region_name=region,
+                connect_timeout=10,
+                read_timeout=10))
+
         secret_value = json.loads(
             client.get_secret_value(SecretId=secret_arn or SECRET_FRIENDLY_NAME)['SecretString'])
 
