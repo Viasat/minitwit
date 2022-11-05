@@ -114,8 +114,9 @@ def get_db_credentials():
             'secretsmanager',
             config=botocore.client.Config(
                 region_name=region,
-                connect_timeout=10,
-                read_timeout=10))
+                connect_timeout=5,
+                read_timeout=5,
+                retries=dict(total_max_attempts=2)))
 
         secret_value = json.loads(
             client.get_secret_value(SecretId=secret_arn or SECRET_FRIENDLY_NAME)['SecretString'])
@@ -156,8 +157,8 @@ def make_db_engine():
             db_type, credentials.username, credentials.password, endpoint, name)
 
         app.logger.info( #pylint: disable=no-member
-            'db_type=%s endpoint=%s db=%s username=%s',
-            db_type, endpoint, name, credentials.username)
+            'db_type=%s endpoint=%s db=%s username=%s using_secret=%s',
+            db_type, endpoint, name, credentials.username,  str(secrets_used))
 
     return (db.create_engine(db_url), secrets_used)
 
