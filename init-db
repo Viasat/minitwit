@@ -4,4 +4,9 @@ export FLASK_APP=minitwit.py
 export LC_ALL=en_US.utf-8
 export LANG=en_US.utf-8
 
+# Initialize the path where the db is
+if [ ! -d /var/minitwit ]; then
+  mkdir -p /var/minitwit/
+fi
+
 flask initdb
