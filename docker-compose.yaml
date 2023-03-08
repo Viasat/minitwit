@@ -1,0 +1,13 @@
+version: "3.8"
+
+services:
+
+  minitwit:
+    image: viasat/minitwit
+    platform: linux/amd64
+    build:
+      context: .
+    ports:
+      - 4000:5000
+    volumes:
+      - ./db:/var/minitwit
