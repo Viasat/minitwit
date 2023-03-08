@@ -1,39 +1,44 @@
+# MiniTwit
 
-                        / MiniTwit /
+Because writing todo lists is not fun
 
-           because writing todo lists is not fun
+# What is MiniTwit?
 
+A SQLite and Flask powered twitter clone
 
-    ~ What is MiniTwit?
+# How do I use it?
 
-      A SQLite and Flask powered twitter clone
+1. install flask and flask-cli via pip
+2. edit the configuration in the minitwit.py file 
+  * export the environment variable `MINITWIT_SETTINGS` pointing to a configuration file.
+3. Initialize the database by running:
 
-    ~ How do I use it?
+```console
+export FLASK_APP=minitwit.py; \
+export LC_ALL=en_US.utf-8; \
+export LANG=en_US.utf-8; \
+flask initdb
+```
 
-      1. install flask and flask-cli via pip
+4. Now you can run `minitwit`:
 
-      2. edit the configuration in the minitwit.py file or
-         export an MINITWIT_SETTINGS environment variable
-         pointing to a configuration file.
+```console
+flask run --host=0.0.0.0 --with-threads --no-debugger --no-reload
+```
 
-      3. fire up a shell and run this:
+The application will greet you on:
 
-         export FLASK_APP=minitwit.py; \
-         export LC_ALL=en_US.utf-8; \
-         export LANG=en_US.utf-8; \
-         flask initdb
+```
+[2023-03-07 19:54:16,940] INFO in minitwit: Using local db sqlite:////var/minitwit/minitwit.db
+ * Serving Flask app 'minitwit.py'
+ * Debug mode: off
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.105.238.6:5000
+Press CTRL+C to quit
+```
 
-      4. now you can run minitwit:
+# Is it tested?
 
-         export FLASK_APP=minitwit.py; \
-         export LC_ALL=en_US.utf-8; \
-         export LANG=en_US.utf-8; \
-         flask run --host=0.0.0.0 --with-threads --no-debugger --no-reload
-
-         the application will greet you on
-         http://0.0.0.0:5000/
-
-    ~ Is it tested?
-
-      You betcha.  Run the `test_minitwit.py` file to
-      see the tests pass.
+You betcha.  Run the `test_minitwit.py` file to see the tests pass.
