@@ -4,8 +4,10 @@ export FLASK_APP=minitwit.py
 export LC_ALL=en_US.utf-8
 export LANG=en_US.utf-8
 
-if [ ! -f /var/minitwit/minitwit.db ] || [ -n "${INIT_DB}" ]; then
-  echo "Initializing database at /var/minitwit/minitwit.db"
+export DB_DIR=${DB_DIR:-/var/minitwit}
+
+if [ ! -f ${DB_DIR}/minitwit.db ] || [ -n "${INIT_DB}" ]; then
+  echo "Initializing database at ${DB_DIR}/minitwit.db"
   ./init-db
 fi
 

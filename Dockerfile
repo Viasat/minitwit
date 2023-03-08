@@ -26,20 +26,24 @@ COPY *.sql /viasat/minitwit
 ####
 FROM builder AS tester
 
+# Only copy the development tools from the requirements for tests
 COPY requirements-dev.txt .
 RUN pip install -r requirements-dev.txt
 
-# Note that we are executing the tests here because we don't want to build
-# A runtime image before the tests are executed successfully!
-RUN pytest test_minitwit.py
+# All the requirements are installed and so the test cases can be executed 
 CMD ["pytest", "test_minitwit.py"]
 
 ###
-### runtime environment containing only the runtime dependencies.
+### Runtime environment containing only the runtime dependencies.
+### Note that this image does NOT have anything for testing!
 ###
 FROM builder AS runtime
 
 # All the other resources are there, so let's add the run-app as it's part of the runtime
+# Note that the builder runtime defines the WORKDIR already so we can COPY to .
 COPY run-app .
+COPY init-db .
+
+RUN rm -rf requirements* test_minitwit.py
 
 ENTRYPOINT ["bash", "/viasat/minitwit/run-app"]

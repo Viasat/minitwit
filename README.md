@@ -95,6 +95,25 @@ minitwit-minitwit-runtime-1  | Press CTRL+C to quit
 
 3. Go to the browser at http://127.0.0.1:5000.
 
+> **NOTE**: When operating this server, the database file is created under the local dir `db/minitwit.db` as mapped in
+> docker-compose.yaml. Make sure to change the path to anything else desired.
+
+```console
+☁️  aws-cli@2.9.15
+☸️  kubectl@1.24.3 📛 kustomize@1.24.3 🎡 helm@3.10.2    🐳 docker@20.10.21-rd 🐙 docker-compose@v2.14.0
+👮 marcellodesales
+🏗  1.24.3+k3s1 🔐 rancher-desktop 🍱 default
+~/dev/github.com/marcellodesales/minitwit on  feature/improve-experience-with-docker! 📅 03-07-2023 ⌚18:07:30
+$ tree db
+db
+└── minitwit.db
+
+0 directories, 1 file
+
+$ file db/minitwit.db
+db/minitwit.db: SQLite 3.x database, last written using SQLite version 3040001, file counter 5, database pages 5, cookie 0x3, schema 4, UTF-8, version-valid-for 5
+```
+
 # Development
 
 > **Requirements**: Install `requirements-dev.txt` for build and testing tools.
@@ -103,22 +122,9 @@ minitwit-minitwit-runtime-1  | Press CTRL+C to quit
 
 You betcha.  Run the `test_minitwit.py` file to see the tests pass.
 
-1. Initialize the database for testing
-2. Install the dev dependencies
-3. Execute the test cases
+1. Install the dev dependencies
 
 > **NOTE**: the runtime dependencies must have been installed as well.
-
-1. Initialize the dabase for testing
-  * Just initialize the database with `init-db`
-
-```console
-$ ./init-db
-[2023-03-08 00:25:47,358] INFO in minitwit: Using local db sqlite:////var/minitwit/minitwit.db
-Initialized the database.
-```
-
-2. Install the dev dependencies 
 
 ```
 $ pip install -r requirements-dev.txt
@@ -148,7 +154,7 @@ WARNING: You are using pip version 22.0.4; however, version 23.0.1 is available.
 You should consider upgrading via the '/usr/local/bin/python -m pip install --upgrade pip' command.
 ```
 
-3. Execute the test cases
+2. Execute the test cases
 
 ```console
 pytest test_minitwit.py
