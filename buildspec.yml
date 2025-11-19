@@ -1,0 +1,27 @@
+batch:
+  fast-fail: false
+  build-graph:
+    - identifier: build1
+      env:
+        variables:
+          BUILD_ID: build1
+      ignore-failure: false
+    - identifier: build2
+      buildspec: build2.yml
+      env:
+        variables:
+          BUILD_ID: build2
+      depend-on:
+        - build1
+    - identifier: build3
+      env:
+        variables:
+          BUILD_ID: build3
+      depend-on:
+        - build2
+    - identifier: build4
+      env:
+        compute-type: ARM_LAMBDA_1GB
+    - identifier: build5
+      env:
+        fleet: fleet_name
