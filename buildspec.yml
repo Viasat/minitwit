@@ -1,9 +1,5 @@
 version: 0.2
-batch:
-  fast-fail: false
-  build-graph:
-    - identifier: build1
-      env:
-        variables:
-          BUILD_ID: build1
-      ignore-failure: false
+phases:
+  build:
+    commands:
+      - ./setup.sh
