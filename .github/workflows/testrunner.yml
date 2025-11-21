@@ -13,7 +13,6 @@ jobs:
       with: 
         app-id: ${{ vars.APP_ID }}
         private-key: ${{ secrets.PRIVATE_KEY }}
-        owner: ${{ github.repository_owner }}
     - name: Checkout repository code
       uses: actions/checkout@v4
       with:
