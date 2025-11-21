@@ -1,19 +1,13 @@
 name: Hello World
-on: [push]
 permissions:
   id-token: write
   contents: read
+on: [push]
 jobs:
   Hello-World-Job:
     runs-on:
       - codebuild-VICERunnersDevTest-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
-    - uses: actions/create-github-app-token@v1
-      id: app-token
-      with: 
-        app-id: ${{ vars.VICE_APP_ID }}
-        private-key: ${{ secrets.VICE_APP_PRIVATE_KEY }}
-        owner: ${{ github.repository_owner }}
     - name: Checkout repository code
       uses: actions/checkout@v4
       with:
