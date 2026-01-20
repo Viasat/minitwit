@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+
+  ####
+  #### Executes the test cases locally within a test image and prepares the container for execution.
+  ####
+  #### docker compose build minitwit-test
+  ####
+  minitwit-test:
+    image: viasat/minitwit-test
+    platform: linux/amd64
+    build:
+      context: .
+      target: tester
+
+  ####
+  #### Runs the runtime server locally with the port mapping local:container
+  ####
+  #### docker compose up --build minitwit-runtime
+  ####
+  minitwit-runtime:
+    image: viasat/minitwit
+    platform: linux/amd64
+    build:
+      context: .
+      target: runtime
+    ports:
+      - 4000:5000
+    volumes:
+      - ./db:/var/minitwit

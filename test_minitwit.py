@@ -20,7 +20,14 @@ def client(request):
     minitwit.app.config['DATABASE'] = 'sqlite:///' + minitwit.app.config['DATABASE'] 
     client = minitwit.app.test_client()
     with minitwit.app.app_context():
-        minitwit.init_db()
+       # Required to not fail the tests at /var/minitwit/minitwit.db
+       # sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) unable to open database file
+       db_dir = "/var/minitwit"
+       if not os.path.exists(db_dir):
+          os.makedirs(db_dir)
+
+       # Note that this is the same as the production db /var/minitwit/minitwit.db
+       minitwit.init_db()
 
     def teardown():
         """Get rid of the database again after each test."""
